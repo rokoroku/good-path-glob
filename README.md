@@ -1,78 +1,61 @@
-# good-squeeze
+# good-path-glob
 
-Simple transform streams useful in creating [good](https://github.com/hapijs/good) data pipelines.
+[Glob](https://en.wikipedia.org/wiki/Glob_(programming)) based event filter stream for [Good](https://github.com/hapijs/good) event from [Hapi](https://github.com/hapijs/hapi) path.
 
-[![Build Status](https://travis-ci.org/hapijs/good-squeeze.svg?branch=master&style=flat)](https://travis-ci.org/hapijs/good-squeeze)
-![Current Version](https://img.shields.io/npm/v/good-squeeze.svg?style=flat)
-
-Lead Maintainer: [Adam Bretz](https://github.com/arb)
+[![Current Version](https://img.shields.io/npm/v/good-path-glob.svg?style=flat)](https://www.npmjs.com/package/good-path-glob)
 
 ## Usage
 
-good-squeeze is a collection of small transform streams. The `Squeeze` stream is useful for filtering events based on the good event options. The `SafeJson` stream is useful for stringifying objects to prevent circular object errors.
+good-path-glob contains a `PathGlob` stream for filtering [good](https://github.com/hapijs/good) events from [hapi](https://github.com/hapijs/hapi) path with glob pattern. 
 
 ## Methods
 
-### `Squeeze(events, [options])`
+### `PathGlob(events, [options])`
 
-Creates a new Squeeze transform stream where:
+Creates a new PathGlob transform stream where:
 
 - `events` an object where each key is a valid good event and the value is one of the following:
-    - `string` - a tag to include when filtering. '*' indicates no filtering.
-    - `array` - array of tags to filter. `[]` indicates no filtering.
+    - `string` - a glob pattern to include when filtering. '*' indicates no filtering.
+    - `array` - array of path patterns to filter. `[]` indicates no filtering.
     - `object` - an object with the following values
-        - `include` - string or array representing tag(s) to *include* when filtering
-        - `exclude` - string or array representing tag(s) to *exclude* when filtering. `exclude` takes precedence over any `include` tags. 
-- `[options]` configuration object that gets passed to the Node [`Stream.Transform`](http://nodejs.org/api/stream.html#stream_class_stream_transform) constructor. **Note** `objectMode` is always `true` for all `Squeeze` objects.
+        - `include` - string or array representing path pattern(s) to *include* when filtering
+        - `exclude` - string or array representing path pattern(s) to *exclude* when filtering. `exclude` takes precedence over any `include` paths. 
+- `[options]` configuration object that gets passed to the Node [`Stream.Transform`](http://nodejs.org/api/stream.html#stream_class_stream_transform) constructor. **Note** `objectMode` is always `true` for all `PathGlob` objects.
 
-The transform stream only passes on events that satisfy the event filtering based on event name and tags. If the upstream event doesn't satisfy the filter, it is not continued down the pipe line.
+### `PathGlob.subscription(events)`
 
-### `Squeeze.subscription(events)`
+A static method on `PathGlob` that creates a new event subscription map where:
 
-A static method on `Squeeze` that creates a new event subscription map where:
-
-- `events` the same arguments used in the `Squeeze` constructor.
+- `events` the same arguments used in the `PathGlob` constructor.
 
 ```js
-const Squeeze = require('good-squeeze');
+const PathGlob = require('good-path-glob');
 
-Squeeze.subscription({ log: 'user', ops: '*', request: ['hapi', 'foo'] });
+PathGlob.subscription({ request: '*', response: ['**/hapi/*', '**/foo/**/bar'] });
 
 // Results in
 // {
-//  log: { include: [ 'user' ], exclude: [] },
-//  ops: { include: [], exclude: [] },
-//  request: { include: [ 'hapi', 'foo' ], exclude: [] } 
+//  request: { include: [], exclude: [] },
+//  response: { include: [ '**/hapi/*', '**/foo/**/bar' ], exclude: [] } 
 // }
 
-Squeeze.subscription({ log: 'user', ops: { exclude: 'debug' }, request: { include: ['hapi', 'foo'], exclude: 'sensitive' } });
+PathGlob.subscription({ request: { exclude: 'debug/*' }, response: { include: ['**/hapi/*', '**/foo/**/bar'], exclude: '**/sensitive/**' } });
 
 // Results in
 // {
-//  log: { include: [ 'user' ], exclude: [] },
-//  ops: { include: [], exclude: [ 'debug' ] },
-//  request: { include: [ 'hapi', 'foo' ], exclude: [ 'sensitive' ] }
+//  request: { include: [], exclude: [ 'debug/*' ] },
+//  response: { include: [ '**/hapi/*', '**/foo/**/bar' ], exclude: [ '**/sensitive/**' ] }
 // }
 ```
 
-Useful for creating an event subscription to be used with `Squeeze.filter` if you do not plan on creating a pipeline coming from good and instead want to manage event filtering manually.
+Useful for creating an event subscription to be used with `PathGlob.filter` if you do not plan on creating a pipeline coming from good and instead want to manage event filtering manually.
 
 
-### `Squeeze.filter(subscription, data)`
+### `PathGlob.filter(subscription, data)`
 
-Returns `true` if the supplied `data.event` + `data.tags` should be reported based on `subscription` where:
+Returns `true` if the supplied `data.event` + `data.path` should be reported based on `subscription` where:
 
-- `subscription` - a subscription map created by `Squeeze.subscription()`.
-- `data` - event object emitted from good/hapi which should contain the following keys:
+- `subscription` - a subscription map created by `PathGlob.subscription()`.
+- `data` - event object emitted from good/hapi which may contain the following keys:
     - `event` - a string representing the event name of `data`
-    - `tags` - an array of strings representing tags associated with this event.
-
-### `SafeJson([options], [stringify])`
-
-Creates a new SafeJson transform stream where:
-
-- `[options]` configuration object that gets passed to the Node [`Stream.Transform`](http://nodejs.org/api/stream.html#stream_class_stream_transform) constructor. **Note** `objectMode` is always `true` for all `Squeeze` objects.
-- `[stringify]` configuration object for controlling how stringify is handled.
-    - `separator` - string to append to each message. Defaults to "\n".
-
-The transform stream stringifys the incoming data and pipes it forward. It will not crash in the cases of circular references and will instead include a "~Circular" string in the result.
+    - `path` - a string representing path associated pattern with this event.

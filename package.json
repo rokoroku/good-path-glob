@@ -1,9 +1,11 @@
 {
-  "name": "good-squeeze",
-  "version": "5.0.1",
-  "description": "Collection of utility transform streams.",
+  "name": "good-path-glob",
+  "version": "0.0.1",
+  "description": "Glob based event filter stream for good event from hapi path.",
   "main": "lib/index.js",
   "keywords": [
+    "hapi",
+    "glob",
     "good",
     "good-reporter",
     "transform-stream",
@@ -15,19 +17,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hapijs/good-squeeze.git"
+    "url": "https://github.com/rokoroku/good-path-glob.git"
   },
   "license": "BSD-3-Clause",
-  "homepage": "https://github.com/hapijs/good-squeeze",
+  "homepage": "https://github.com/rokoroku/good-path-glob.git",
   "engines": {
     "node": ">=4.0.0"
   },
   "dependencies": {
-    "fast-safe-stringify": "1.1.0",
-    "hoek": "4.x.x"
+    "hoek": "4.x.x",
+    "minimatch": "^3.0.3"
   },
   "devDependencies": {
-    "code": "3.x.x",
+    "code": "4.0.0",
     "lab": "11.x.x"
   }
 }

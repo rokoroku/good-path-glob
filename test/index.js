@@ -7,8 +7,7 @@ const Stream = require('stream');
 const Code = require('code');
 const Lab = require('lab');
 
-const Squeeze = require('..').Squeeze;
-const SafeJson = require('..').SafeJson;
+const PathGlob = require('..').PathGlob;
 
 const lab = exports.lab = Lab.script();
 const expect = Code.expect;
@@ -33,7 +32,7 @@ describe('Squeeze', () => {
             const tags = ['*', null, undefined, false, 0];
             for (let i = 0; i < tags.length; ++i) {
 
-                const result = Squeeze.subscription({ error: tags[i] });
+                const result = PathGlob.subscription({ error: tags[i] });
 
                 expect(result.error).to.equal({
                     include: [],
@@ -45,7 +44,7 @@ describe('Squeeze', () => {
 
         it('converts a single tag to an include/exclude object', { plan: 1 }, (done) => {
 
-            const result = Squeeze.subscription({ error: 'hapi' });
+            const result = PathGlob.subscription({ error: 'hapi' });
             expect(result.error).to.equal({
                 include: ['hapi'],
                 exclude: []
@@ -55,7 +54,7 @@ describe('Squeeze', () => {
 
         it('converts an array to an include/exclude object', { plan: 1 }, (done) => {
 
-            const result = Squeeze.subscription({ error: ['hapi', 'error'] });
+            const result = PathGlob.subscription({ error: ['hapi', 'error'] });
             expect(result.error).to.equal({
                 include: ['hapi', 'error'],
                 exclude: []
@@ -65,7 +64,7 @@ describe('Squeeze', () => {
 
         it('adds excluded tags to exclude array in map', (done) => {
 
-            const result = Squeeze.subscription({ error: { exclude: ['sensitive'] } });
+            const result = PathGlob.subscription({ error: { exclude: ['sensitive'] } });
             expect(result.error).to.equal({
                 include: [],
                 exclude: ['sensitive']
@@ -78,96 +77,57 @@ describe('Squeeze', () => {
 
         it('returns true if this reporter should report this event type', { plan: 1 }, (done) => {
 
-            const subscription = Squeeze.subscription({ log: '*' });
-            expect(Squeeze.filter(subscription, { event: 'log', tags: ['request', 'server', 'error', 'hapi'] })).to.be.true();
-            done();
-        });
-
-        it('returns false if this report should not report this event type', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: '*' });
-            expect(Squeeze.filter(subscription, { event: 'ops', tags: ['*'] })).to.be.false();
+            const subscription = PathGlob.subscription({ log: '*' });
+            expect(PathGlob.filter(subscription, { event: 'log', tags: ['request', 'server', 'error', 'hapi'] })).to.be.true();
             done();
         });
 
         it('returns true if the event is matched, but there are not any tags with the data', { plan: 1 }, (done) => {
 
-            const subscription = Squeeze.subscription({ log: '*' });
-            expect(Squeeze.filter(subscription, { event: 'log' })).to.be.true();
+            const subscription = PathGlob.subscription({ log: '*' });
+            expect(PathGlob.filter(subscription, { event: 'log' })).to.be.true();
             done();
         });
 
-        it('returns false if the subscriber has tags, but the matched event does not have any', { plan: 1 }, (done) => {
+        it('returns true if the event path matches glob pattern', { plan: 3 }, (done) => {
 
-            const subscription = Squeeze.subscription({ error: 'db' });
-            expect(Squeeze.filter(subscription, { event: 'error', tags: [] })).to.be.false();
+            const subscription = PathGlob.subscription({ response: ['/accept/**/true'] });
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/so/true' })).to.be.true();
             done();
         });
 
-        it('returns true if the event and tag match', { plan: 1 }, (done) => {
+        it('returns false if the event path not matches glob pattern', { plan: 3 }, (done) => {
 
-            const subscription = Squeeze.subscription({ error: ['high', 'medium', 'log'] });
-            expect(Squeeze.filter(subscription, { event: 'error', tags: ['hapi', 'high', 'db', 'severe'] })).to.be.true();
+            const subscription = PathGlob.subscription({ response: ['/accept/**/true'] });
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/so/true' })).to.be.true();
             done();
         });
 
-        it('returns false by default', { plan: 1 }, (done) => {
+        it('returns true if the event path matches glob brace pattern', { plan: 4 }, (done) => {
 
-            const subscription = Squeeze.subscription({ request: 'hapi' });
-            expect(Squeeze.filter(subscription, { event: 'request' })).to.be.false();
+            const subscription = PathGlob.subscription({ response: ['/accept/{1..3}/true'] });
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/1/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/2/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/3/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/4/true' })).to.be.false();
             done();
         });
 
-        it('returns false if "tags" is not an array', { plan: 1 }, (done) => {
+        it('returns true by default', { plan: 1 }, (done) => {
 
-            const subscription = Squeeze.subscription({ request: 'hapi' });
-            expect(Squeeze.filter(subscription, { event: 'request', tags: 'hapi' })).to.be.false();
-            done();
-        });
-
-        it('returns true if this reporter should report this event type (advanced)', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: { include: '*' } });
-            expect(Squeeze.filter(subscription, { event: 'log', tags: ['request', 'server', 'hapi', 'debug'] })).to.be.true();
-            done();
-        });
-
-        it('returns false if this reporter should not report this event with both include and exclude tags defined', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: { include: 'request', exclude: 'debug' } });
-            expect(Squeeze.filter(subscription, { event: 'log', tags: ['request', 'server', 'hapi', 'debug'] })).to.be.false();
-
-            done();
-        });
-
-        it('returns false if this reporter should not report this event with exclude tags defined', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: { exclude: 'debug' } });
-            expect(Squeeze.filter(subscription, { event: 'log', tags: ['request', 'server', 'hapi', 'debug'] })).to.be.false();
-
-            done();
-        });
-
-        it('returns true if this reporter should report this event with only exclude tags defined', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: { exclude: 'debug' } });
-            expect(Squeeze.filter(subscription, { event: 'log', tags: ['request', 'server', 'hapi'] })).to.be.true();
-
-            done();
-        });
-
-        it('returns true if this reporter should report this event with only exclude tags defined in case no tags are present', { plan: 1 }, (done) => {
-
-            const subscription = Squeeze.subscription({ log: { exclude: 'debug' } });
-            expect(Squeeze.filter(subscription, { event: 'log' })).to.be.true();
-
+            const subscription = PathGlob.subscription({ request: 'hapi' });
+            expect(PathGlob.filter(subscription, { event: 'request' })).to.be.true();
             done();
         });
     });
 
     it('does not forward events if "filter()" is false', { plan: 1 }, (done) => {
 
-        const stream = new Squeeze({ request: '*' });
+        const stream = new PathGlob({ request: '/allow/*' });
         const result = [];
 
         stream.on('data', (data) => {
@@ -179,7 +139,8 @@ describe('Squeeze', () => {
 
             expect(result).to.equal([{
                 event: 'request',
-                id: 1
+                id: 1,
+                path: '/allow/me'
             }]);
             done();
         });
@@ -188,14 +149,14 @@ describe('Squeeze', () => {
 
         read.pipe(stream);
 
-        read.push({ event: 'request', id: 1 });
-        read.push({ event: 'ops', id: 2 });
+        read.push({ event: 'request', id: 1, path: '/allow/me' });
+        read.push({ event: 'request', id: 2, path: '/do/not/allow/me' });
         read.push(null);
     });
 
     it('remains open as long as the read stream does not end it', { plan: 1 }, (done) => {
 
-        const stream = new Squeeze({ request: '*' });
+        const stream = new PathGlob({ request: '*' });
         const result = [];
 
         stream.on('data', (data) => {
@@ -234,11 +195,11 @@ describe('Squeeze', () => {
 
         expect(() => {
 
-            new Squeeze('request');
+            new PathGlob('request');
         }).to.throw('events must be an object');
         expect(() => {
 
-            new Squeeze(1);
+            new PathGlob(1);
         }).to.throw('events must be an object');
 
         done();
@@ -246,65 +207,9 @@ describe('Squeeze', () => {
 
     it('allows empty event arguments', { plan: 1 }, (done) => {
 
-        const stream = new Squeeze(null);
+        const stream = new PathGlob(null);
 
         expect(stream._subscription).to.equal(Object.create(null));
         done();
-    });
-});
-
-describe('SafeJson', () => {
-
-    it('safely handles circular references in incoming data', { plan: 1 }, (done) => {
-
-        let result = '';
-        const stream = new SafeJson();
-        const read = internals.readStream();
-
-        const message = {
-            x: 1
-        };
-        message.y = message;
-
-        stream.on('data', (data) => {
-
-            result += data;
-        });
-
-        stream.on('end', () => {
-
-            expect(result).to.equal('{"x":1,"y":"[Circular]"}\n{"foo":"bar"}\n');
-            done();
-        });
-
-        read.pipe(stream);
-
-        read.push(message);
-        read.push({ foo: 'bar' });
-        read.push(null);
-    });
-
-    it('adds a seperator value when specified', { plan: 1 }, (done) => {
-
-        let result = '';
-        const stream = new SafeJson({}, { separator: '#' });
-        const read = internals.readStream();
-
-        stream.on('data', (data) => {
-
-            result += data;
-        });
-
-        stream.on('end', () => {
-
-            expect(result).to.equal('{"foo":"bar"}#{"bar":"baz"}#');
-            done();
-        });
-
-        read.pipe(stream);
-
-        read.push({ foo: 'bar' });
-        read.push({ bar: 'baz' });
-        read.push(null);
     });
 });
