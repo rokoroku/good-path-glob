@@ -2,6 +2,7 @@
 
 [Glob](https://en.wikipedia.org/wiki/Glob_(programming)) based event filter stream for [Good](https://github.com/hapijs/good) event from [Hapi](https://github.com/hapijs/hapi) path.
 
+[![Build Status](https://travis-ci.org/rokoroku/good-path-glob.svg?branch=master)](https://travis-ci.org/rokoroku/good-path-glob)
 [![Current Version](https://img.shields.io/npm/v/good-path-glob.svg?style=flat)](https://www.npmjs.com/package/good-path-glob)
 
 ## Usage
@@ -28,23 +29,26 @@ A static method on `PathGlob` that creates a new event subscription map where:
 
 - `events` the same arguments used in the `PathGlob` constructor.
 
+**Note**: each subscription object is an instance of [`Minimatch`](https://github.com/isaacs/minimatch) class which helps check glob patterns.
+
+
 ```js
 const PathGlob = require('good-path-glob');
 
-PathGlob.subscription({ request: '*', response: ['**/hapi/*', '**/foo/**/bar'] });
+PathGlob.subscription({ request: '*', response: ['*.json', '/api/**'] });
 
 // Results in
 // {
 //  request: { include: [], exclude: [] },
-//  response: { include: [ '**/hapi/*', '**/foo/**/bar' ], exclude: [] } 
+//  response: { include: [ Minimatch('*.json'), Minimatch('/api/**') ], exclude: [] } 
 // }
 
-PathGlob.subscription({ request: { exclude: 'debug/*' }, response: { include: ['**/hapi/*', '**/foo/**/bar'], exclude: '**/sensitive/**' } });
+PathGlob.subscription({ request: { exclude: '/debug/**' }, response: { include: '/api/**', exclude: ['/docs/**', '*.css'] } });
 
 // Results in
 // {
-//  request: { include: [], exclude: [ 'debug/*' ] },
-//  response: { include: [ '**/hapi/*', '**/foo/**/bar' ], exclude: [ '**/sensitive/**' ] }
+//  request: { include: [], exclude: [ Minimatch('debug/**') ] },
+//  response: { include: [ Minimatch('api/**') ], exclude: [ Minimatch('/docs/**'), Minimatch('*.css') ] }
 // }
 ```
 

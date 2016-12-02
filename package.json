@@ -1,6 +1,6 @@
 {
   "name": "good-path-glob",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Glob based event filter stream for good event from hapi path.",
   "main": "lib/index.js",
   "keywords": [

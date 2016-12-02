@@ -3,6 +3,7 @@
 // Load modules
 
 const Stream = require('stream');
+const Minimatch = require('minimatch').Minimatch;
 
 const Code = require('code');
 const Lab = require('lab');
@@ -18,7 +19,7 @@ const internals = {
     readStream() {
 
         const stream = new Stream.Readable({ objectMode: true });
-        stream._read = () => {};
+        stream._read = () => { };
         return stream;
     }
 };
@@ -44,9 +45,9 @@ describe('Squeeze', () => {
 
         it('converts a single tag to an include/exclude object', { plan: 1 }, (done) => {
 
-            const result = PathGlob.subscription({ error: 'hapi' });
-            expect(result.error).to.equal({
-                include: ['hapi'],
+            const result = PathGlob.subscription({ request: 'hapi' });
+            expect(result.request).to.equal({
+                include: [new Minimatch('hapi')],
                 exclude: []
             });
             done();
@@ -54,9 +55,9 @@ describe('Squeeze', () => {
 
         it('converts an array to an include/exclude object', { plan: 1 }, (done) => {
 
-            const result = PathGlob.subscription({ error: ['hapi', 'error'] });
-            expect(result.error).to.equal({
-                include: ['hapi', 'error'],
+            const result = PathGlob.subscription({ request: ['*.hapi', '*.error'] });
+            expect(result.request).to.equal({
+                include: [new Minimatch('*.hapi'), new Minimatch('*.error')],
                 exclude: []
             });
             done();
@@ -64,10 +65,10 @@ describe('Squeeze', () => {
 
         it('adds excluded tags to exclude array in map', (done) => {
 
-            const result = PathGlob.subscription({ error: { exclude: ['sensitive'] } });
-            expect(result.error).to.equal({
+            const result = PathGlob.subscription({ request: { exclude: ['sensitive'] } });
+            expect(result.request).to.equal({
                 include: [],
-                exclude: ['sensitive']
+                exclude: [new Minimatch('sensitive')]
             });
             done();
         });
@@ -75,35 +76,36 @@ describe('Squeeze', () => {
 
     describe('filter()', () => {
 
-        it('returns true if this reporter should report this event type', { plan: 1 }, (done) => {
+        it('returns false if the subscription does not contain event type', { plan: 1 }, (done) => {
 
-            const subscription = PathGlob.subscription({ log: '*' });
-            expect(PathGlob.filter(subscription, { event: 'log', tags: ['request', 'server', 'error', 'hapi'] })).to.be.true();
+            const subscription = PathGlob.subscription({ request: '*' });
+            expect(PathGlob.filter(subscription, { event: 'response', path: 'path/to/response' })).to.be.false();
             done();
         });
 
-        it('returns true if the event is matched, but there are not any tags with the data', { plan: 1 }, (done) => {
+        it('returns true if the event is matched', { plan: 2 }, (done) => {
 
-            const subscription = PathGlob.subscription({ log: '*' });
-            expect(PathGlob.filter(subscription, { event: 'log' })).to.be.true();
+            const subscription = PathGlob.subscription({ request: '*' });
+            expect(PathGlob.filter(subscription, { event: 'request', path: 'any/path' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'request', path: 'another/path' })).to.be.true();
             done();
         });
 
         it('returns true if the event path matches glob pattern', { plan: 3 }, (done) => {
 
-            const subscription = PathGlob.subscription({ response: ['/accept/**/true'] });
+            const subscription = PathGlob.subscription({ response: { include: ['/accept/**/true'] } });
             expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/true' })).to.be.true();
             expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/true' })).to.be.true();
             expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/so/true' })).to.be.true();
             done();
         });
 
-        it('returns false if the event path not matches glob pattern', { plan: 3 }, (done) => {
+        it('returns false if the event path matches exclude glob pattern', { plan: 3 }, (done) => {
 
-            const subscription = PathGlob.subscription({ response: ['/accept/**/true'] });
-            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/true' })).to.be.true();
-            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/true' })).to.be.true();
-            expect(PathGlob.filter(subscription, { event: 'response', path: '/accept/me/so/true' })).to.be.true();
+            const subscription = PathGlob.subscription({ response: { exclude: ['/disallow/**/false'] } });
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/allow/me/true' })).to.be.true();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/disallow/me/false' })).to.be.false();
+            expect(PathGlob.filter(subscription, { event: 'response', path: '/disallow/false' })).to.be.false();
             done();
         });
 
